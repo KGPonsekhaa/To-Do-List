@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Enhanced Todo List</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="todo-container">
+      <div id="dark-mode-toggle">
+        <input type="checkbox" id="darkModeSwitch" onclick="toggleDarkMode()" />
+        <label for="darkModeSwitch">Dark Mode</label>
+      </div>
+      <h2>Todo List</h2>
+      <input id="input" placeholder="Add a new task..." />
+      <input type="date" id="target-date" placeholder="Set a target date..." />
+      <button onclick="add()">Add</button>
+      <ul id="list-container">
+        <!-- Tasks will be added here -->
+      </ul>
+      <div class="completed-tasks-container">
+        <h3>Completed Tasks</h3>
+        <ul id="completed-tasks">
+          <!-- Completed tasks will be moved here -->
+        </ul>
+      </div>
+    </div>
+
+    <script>
+      // JavaScript functionality
+      const ul = document.getElementById("list-container");
+      const completedUl = document.getElementById("completed-tasks");
+      const input = document.getElementById("input");
+      const targetDateInput = document.getElementById("target-date");
+      const body = document.body;
+
+      function add() {
+        const task = input.value.trim();
+        const targetDate = targetDateInput.value.trim();
+        if (task !== "" && targetDate !== "") {
+          const listItem = document.createElement("li");
+          listItem.setAttribute("draggable", "true");
+
+          const date = new Date();
+          const dateString = `${date.getDate()}/${
+            date.getMonth() + 1
+          }/${date.getFullYear()}`;
+
+          listItem.innerHTML = `
+                    <span onclick="editTask(event)">${task}</span>
+                    <span class="date">[${dateString}] Target: ${targetDate}</span>
+                    <button onclick="completeTask(event)">Complete</button>
+                `;
+          addDragAndDropHandlers(listItem);
+          ul.appendChild(listItem);
+          input.value = ""; // Clear the input after adding
+          targetDateInput.value = ""; // Clear the date input after adding
+          saveTasks();
+        }
+      }
+
+      function completeTask(event) {
+        const taskItem = event.target.parentElement;
+        event.target.textContent = "Delete";
+        event.target.onclick = deleteItem;
+        completedUl.appendChild(taskItem);
+        saveTasks();
+      }
+
+      function deleteItem(event) {
+        event.target.parentElement.remove();
+        saveTasks();
+      }
+
+      function editTask(event) {
+        const taskText = event.target;
+        const newTask = prompt("Edit your task", taskText.textContent);
+        if (newTask !== null && newTask.trim() !== "") {
+          taskText.textContent = newTask.trim();
+          saveTasks();
+        }
+      }
+
+      // Allow pressing "Enter" to add a task
+      input.addEventListener("keypress", function (event) {
+        if (event.key === "Enter") {
+          add();
+        }
+      });
+
+      // Drag-and-drop functionality
+      function addDragAndDropHandlers(item) {
+        item.addEventListener("dragstart", function () {
+          item.classList.add("dragging");
+        });
+
+        item.addEventListener("dragend", function () {
+          item.classList.remove("dragging");
+          saveTasks();
+        });
+
+        ul.addEventListener("dragover", function (e) {
+          e.preventDefault();
+          const draggingItem = document.querySelector(".dragging");
+          const afterElement = getDragAfterElement(ul, e.clientY);
+          if (afterElement == null) {
+            ul.appendChild(draggingItem);
+          } else {
+            ul.insertBefore(draggingItem, afterElement);
+          }
+        });
+      }
+
+      function getDragAfterElement(container, y) {
+        const draggableElements = [
+          ...container.querySelectorAll("li:not(.dragging)"),
+        ];
+
+        return draggableElements.reduce(
+          (closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = y - box.top - box.height / 2;
+            if (offset < 0 && offset > closest.offset) {
+              return { offset: offset, element: child };
+            } else {
+              return closest;
+            }
+          },
+          { offset: Number.NEGATIVE_INFINITY }
+        ).element;
+      }
+
+      // Dark mode toggle
+      function toggleDarkMode() {
+        body.classList.toggle("dark-mode");
+      }
+
+      // Local storage persistence
+      function saveTasks() {
+        const tasks = [];
+        ul.querySelectorAll("li").forEach((item) => {
+          const task = item.querySelector("span").textContent;
+          const date = item.querySelector(".date").textContent;
+          tasks.push({ task, date, completed: false });
+        });
+        completedUl.querySelectorAll("li").forEach((item) => {
+          const task = item.querySelector("span").textContent;
+          const date = item.querySelector(".date").textContent;
+          tasks.push({ task, date, completed: true });
+        });
+        localStorage.setItem("tasks", JSON.stringify(tasks));
+      }
+
+      function loadTasks() {
+        const tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+        tasks.forEach(({ task, date, completed }) => {
+          const listItem = document.createElement("li");
+          listItem.setAttribute("draggable", "true");
+          listItem.innerHTML = `
+                    <span onclick="editTask(event)">${task}</span>
+                    <span class="date">${date}</span>
+                    <button onclick="${
+                      completed ? "deleteItem" : "completeTask"
+                    }(event)">${completed ? "Delete" : "Complete"}</button>
+                `;
+          addDragAndDropHandlers(listItem);
+          if (completed) {
+            completedUl.appendChild(listItem);
+          } else {
+            ul.appendChild(listItem);
+          }
+        });
+      }
+
+      loadTasks(); // Load tasks from local storage on page load
+    </script>
+  </body>
+</html>
